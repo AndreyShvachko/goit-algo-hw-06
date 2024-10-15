@@ -1,82 +1,70 @@
-import networkx as nx
-import matplotlib.pyplot as plt
+import heapq
 
-# Створення графу.
-G = nx.Graph()
+# Реалізація алгоритму Дейкстри
+def dijkstra_custom(graph, start):
+    # Ініціалізація: відстані до всіх вершин є нескінченними, окрім стартової
+    distances = {node: float('inf') for node in graph}
+    distances[start] = 0
+    
+    # Черга з пріоритетами для вершин, які ще треба опрацювати
+    priority_queue = [(0, start)]
+    
+    # Для зберігання попередніх вершин, щоб потім відновити шлях
+    previous_nodes = {node: None for node in graph}
+    
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+        
+        # Якщо знайдено коротший шлях, продовжуємо пошук
+        if current_distance > distances[current_node]:
+            continue
+        
+        # Оглядаємо сусідів поточної вершини
+        for neighbor, weight in graph[current_node].items():
+            distance = current_distance + weight
+            
+            # Якщо знайдено коротший шлях до сусіда, оновлюємо дані
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                previous_nodes[neighbor] = current_node
+                heapq.heappush(priority_queue, (distance, neighbor))
+    
+    return distances, previous_nodes
 
-# Додавання вершин (станцій).
-stations = ['A', 'B', 'C', 'D', 'E', 'F']
-G.add_nodes_from(stations)
-
-# Додавання ребер (маршрутів між станціями).
-routes = [('A', 'B'), ('A', 'C'), ('B', 'D'), ('C', 'D'), ('D', 'E'), ('E', 'F'), ('C', 'F')]
-G.add_edges_from(routes)
-
-# Візуалізація графу.
-plt.figure(figsize=(8, 6))
-nx.draw(G, with_labels=True, node_size=700, node_color='skyblue', font_size=12, font_weight='bold')
-plt.title("Транспортна мережа міста")
-plt.show()
-
-# Аналіз графу.
-num_nodes = G.number_of_nodes()
-num_edges = G.number_of_edges()
-degrees = dict(G.degree())
-average_degree = sum(degrees.values()) / num_nodes
-
-print(f"Кількість вершин: {num_nodes}")
-print(f"Кількість ребер: {num_edges}")
-print(f"Ступені вершин: {degrees}")
-print(f"Середній ступінь: {average_degree:.2f}")
-
-# DFS та BFS обходи.
-def dfs(graph, start, target, path=[]):
-    path = path + [start]
-    if start == target:
+# Відновлення шляху з попередніх вершин
+def reconstruct_path(previous_nodes, start, target):
+    path = []
+    current_node = target
+    
+    # Рухаємося назад від кінцевої вершини до стартової
+    while current_node is not None:
+        path.append(current_node)
+        current_node = previous_nodes[current_node]
+    
+    path.reverse()
+    if path[0] == start:
         return path
-    for node in graph.neighbors(start):
-        if node not in path:
-            new_path = dfs(graph, node, target, path)
-            if new_path:
-                return new_path
-    return None
+    else:
+        return []
 
-def bfs(graph, start, target):
-    queue = [(start, [start])]
-    while queue:
-        (vertex, path) = queue.pop(0)
-        for next_node in set(graph.neighbors(vertex)) - set(path):
-            if next_node == target:
-                return path + [next_node]
-            else:
-                queue.append((next_node, path + [next_node]))
-    return None
+# Створюємо граф з вагами (аналогічно попередньому прикладу)
+graph = {
+    'A': {'B': 3, 'C': 2},
+    'B': {'A': 3, 'D': 4},
+    'C': {'A': 2, 'D': 1, 'F': 5},
+    'D': {'B': 4, 'C': 1, 'E': 2},
+    'E': {'D': 2, 'F': 3},
+    'F': {'C': 5, 'E': 3}
+}
 
-# Застосування алгоритмів до графу.
-start, target = 'A', 'F'
-dfs_path = dfs(G, start, target)
-bfs_path = bfs(G, start, target)
+# Запускаємо алгоритм Дейкстри
+start_node = 'A'
+target_node = 'F'
+distances, previous_nodes = dijkstra_custom(graph, start_node)
 
-print(f"DFS шлях з {start} до {target}: {dfs_path}")
-print(f"BFS шлях з {start} до {target}: {bfs_path}")
+# Виведення результатів
+print(f"Найкоротші відстані від вершини {start_node}: {distances}")
+path = reconstruct_path(previous_nodes, start_node, target_node)
+print(f"Найкоротший шлях від {start_node} до {target_node}: {path}")
+print(f"Довжина найкоротшого шляху: {distances[target_node]}")
 
-# Додавання ваг до ребер.
-weighted_routes = [('A', 'B', 3), ('A', 'C', 2), ('B', 'D', 4), ('C', 'D', 1), ('D', 'E', 2), ('E', 'F', 3), ('C', 'F', 5)]
-G_weighted = nx.Graph()
-G_weighted.add_weighted_edges_from(weighted_routes)
-
-# Візуалізація графу з вагами.
-plt.figure(figsize=(8, 6))
-pos = nx.spring_layout(G_weighted)
-nx.draw(G_weighted, pos, with_labels=True, node_size=700, node_color='lightgreen', font_size=12, font_weight='bold')
-labels = nx.get_edge_attributes(G_weighted, 'weight')
-nx.draw_networkx_edge_labels(G_weighted, pos, edge_labels=labels)
-plt.title("Транспортна мережа з вагами")
-plt.show()
-
-# Застосування алгоритму Дейкстри.
-shortest_path = nx.dijkstra_path(G_weighted, 'A', 'F')
-shortest_path_length = nx.dijkstra_path_length(G_weighted, 'A', 'F')
-
-print(f"Найкоротший шлях з A до F: {shortest_path}")
-print(f"Довжина найкоротшого шляху: {shortest_path_length}")
